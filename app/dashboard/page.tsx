@@ -1,118 +1,63 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Html5QrcodeScanner } from 'html5-qrcode';
 
 export default function Dashboard() {
-  const [role, setRole] = useState<string | null>(null);
-  const [scanResult, setScanResult] = useState<any>(null);
+  const [role, setRole] = useState('');
+  const [stats, setStats] = useState<any>({});
 
   useEffect(() => {
-    const userRole = localStorage.getItem('userRole');
+    const userRole = localStorage.getItem('userRole') || '';
     setRole(userRole);
+    fetchStats(userRole);
+  }, []);
 
-    // 1. Initialize the scanner
-    const scanner = new Html5QrcodeScanner(
-      "reader", 
-      { fps: 10, qrbox: 250 }, 
-      /* verbose= */ false
-    );
-
-    // 2. Start scanning
-    scanner.render(
-      async (id) => {
-        // This callback can be async!
-        const table = userRole === 'h&p' ? 'handp_data' : 'proshows_data';
-        const { data, error } = await supabase
-          .from(table)
-          .select('*')
-          .eq('reg_id', id)
-          .single();
-
-        if (data) {
-          setScanResult(data);
-          // Optional: Stop scanner after success to show details
-          scanner.pause(true); 
-        } else {
-          alert("Invalid Ticket!");
-        }
-      },
-      (error) => {
-        // You can leave this empty or log minor scanning errors
-      }
-    );
-
-    // 3. THE FIX: Synchronous cleanup function
-    return () => {
-      scanner.clear().catch((err) => {
-        console.error("Failed to clear scanner:", err);
-      });
-    };
-  }, []); // Run once on mount
-
-  const markAttendance = async () => {
-    if (!scanResult) return;
-    
-    const table = role === 'h&p' ? 'handp_data' : 'proshows_data';
-    const updateData = role === 'h&p' ? { status: 'Attending' } : { day1_status: 'Attending' };
-
-    const { error } = await supabase
-      .from(table)
-      .update(updateData)
-      .eq('reg_id', scanResult.reg_id);
-
-    if (error) {
-      alert("Error: " + error.message);
+  async function fetchStats(userRole: string) {
+    if (userRole === 'h&p') {
+      const { count: reg } = await supabase.from('handp_data').select('*', { count: 'exact', head: true });
+      const { count: attend } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
+      const { count: onCampus } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('on_campus', true);
+      setStats({ reg, attend, onCampus, outCampus: (attend || 0) - (onCampus || 0) });
     } else {
-      alert("Attendance Marked Successfully!");
-      window.location.reload(); // Quick way to reset the scanner
+      // Logic for Proshows (Day 1, 2, 3)
+      const { count: d1 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
+      const { count: d2 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
+      setStats({ d1, d2, d3: 0 }); // Day 3 example
     }
-  };
+  }
 
   return (
-    <div className="max-w-md mx-auto p-4 flex flex-col items-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 text-blue-600">
-        {role?.toUpperCase()} Dashboard
-      </h1>
-
-      <div className="w-full bg-white rounded-xl shadow-lg overflow-hidden p-2">
-        {!scanResult ? (
-          <div id="reader"></div>
-        ) : (
-          <div className="p-6 text-center">
-            <div className="mb-4">
-              <span className="text-sm text-gray-500 uppercase font-bold tracking-widest">Participant Found</span>
-              <h2 className="text-xl font-black text-gray-800">{scanResult.name}</h2>
-              <p className="text-blue-500 font-mono">{scanResult.reg_id}</p>
-            </div>
-            
-            <button 
-              onClick={markAttendance}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-lg shadow-md transition-all mb-3"
-            >
-              Confirm Attendance
-            </button>
-
-            <button 
-              onClick={() => setScanResult(null)}
-              className="text-gray-400 text-sm font-medium hover:underline"
-            >
-              Cancel & Scan Again
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-8 grid grid-cols-2 gap-4 w-full text-center">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <p className="text-xs text-blue-400 font-bold uppercase">Status</p>
-          <p className="text-lg font-bold text-blue-900">Active</p>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Welcome Back</h1>
+      {role === 'h&p' ? (
+        <div className="grid grid-cols-2 gap-4">
+          <StatCard label="Registered" val={stats.reg} color="bg-blue-500" />
+          <StatCard label="Attending" val={stats.attend} color="bg-green-500" />
+          <StatCard label="On Campus" val={stats.onCampus} color="bg-orange-500" />
+          <StatCard label="Outside" val={stats.outCampus} color="bg-red-500" />
         </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-xs text-gray-400 font-bold uppercase">Mode</p>
-          <p className="text-lg font-bold text-gray-700">Check-in</p>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          <ProshowColumn day="Day 1" attending={stats.d1} />
+          <ProshowColumn day="Day 2" attending={stats.d2} />
+          <ProshowColumn day="Day 3" attending={stats.d3} />
         </div>
-      </div>
+      )}
     </div>
   );
 }
+
+const StatCard = ({ label, val, color }: any) => (
+  <div className={`${color} p-6 rounded-2xl text-white shadow-lg`}>
+    <p className="text-sm opacity-80 uppercase font-bold">{label}</p>
+    <p className="text-3xl font-black">{val || 0}</p>
+  </div>
+);
+
+const ProshowColumn = ({ day, attending }: any) => (
+  <div className="bg-white p-4 rounded-2xl min-w-[200px] shadow border">
+    <h3 className="font-bold border-b pb-2 mb-4">{day}</h3>
+    <p className="text-xs text-gray-500">Tickets Sold: 500</p>
+    <p className="text-xl font-bold text-blue-600">Attending: {attending}</p>
+  </div>
+);
