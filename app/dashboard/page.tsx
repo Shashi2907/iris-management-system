@@ -4,24 +4,55 @@ import { supabase } from '@/lib/supabase';
 
 export default function Dashboard() {
   const [role, setRole] = useState('');
+  const [vertical, setVertical] = useState('');
+  const [level, setLevel] = useState('');
   const [stats, setStats] = useState<any>({});
 
   useEffect(() => {
-    const userRole = localStorage.getItem('userRole') || '';
-    setRole(userRole);
-    fetchStats(userRole);
+    const init = async () => {
+      let currentRole = '';
+      let currentVertical = '';
+      let currentLevel = '';
+      try {
+        const userResp: any = await (supabase as any).auth?.getUser?.();
+        const user = userResp?.data?.user;
+        if (user?.id) {
+          const { data: profile } = await supabase.from('profiles').select('role,level,vertical').eq('id', user.id).maybeSingle();
+          if (profile) {
+            currentRole = profile.role || '';
+            currentVertical = profile.vertical || '';
+            currentLevel = profile.level || '';
+          }
+        }
+      } catch (e) {
+        // ignore and fallback
+      }
+
+      if (!currentRole) {
+        currentRole = localStorage.getItem('userRole') || '';
+        currentVertical = localStorage.getItem('userVertical') || '';
+        currentLevel = localStorage.getItem('userLevel') || '';
+      }
+
+      setRole((currentRole || '').toLowerCase());
+      setVertical(currentVertical);
+      setLevel((currentLevel || '').toLowerCase());
+      fetchStats(currentRole, currentVertical);
+    };
+
+    init();
   }, []);
 
-  async function fetchStats(userRole: string) {
+  async function fetchStats(userRole: string, v: string) {
     if (userRole === 'h&p') {
-      const { count: reg } = await supabase.from('handp_data').select('*', { count: 'exact', head: true });
-      const { count: attend } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
-      const { count: onCampus } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('on_campus', true);
+      const { count: reg } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('vertical', v);
+      const { count: attend } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('status', 'Attending').eq('vertical', v);
+      const { count: onCampus } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('on_campus', true).eq('vertical', v);
       setStats({ reg, attend, onCampus, outCampus: (attend || 0) - (onCampus || 0) });
     } else {
       // Logic for Proshows (Day 1, 2, 3)
-      const { count: d1 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
-      const { count: d2 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
+      const { count: d1 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending').eq('vertical', v);
+      const { count: d2 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending').eq('vertical', v);
       setStats({ d1, d2, d3: 0 }); // Day 3 example
     }
   }

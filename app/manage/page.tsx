@@ -5,26 +5,57 @@ import { Trash, Edit3, Download } from 'lucide-react';
 
 export default function Manage() {
   const [role, setRole] = useState('');
+  const [vertical, setVertical] = useState('');
+  const [level, setLevel] = useState('');
   const [data, setData] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
-    const r = localStorage.getItem('userRole') || '';
-    setRole(r);
-    fetchData(r);
+    const init = async () => {
+      let currentRole = '';
+      let currentVertical = '';
+      let currentLevel = '';
+      try {
+        const userResp: any = await (supabase as any).auth?.getUser?.();
+        const user = userResp?.data?.user;
+        if (user?.id) {
+          const { data: profile } = await supabase.from('profiles').select('role,level,vertical').eq('id', user.id).maybeSingle();
+          if (profile) {
+            currentRole = profile.role || '';
+            currentVertical = profile.vertical || '';
+            currentLevel = profile.level || '';
+          }
+        }
+      } catch (e) {
+        // ignore and fallback
+      }
+
+      if (!currentRole) {
+        currentRole = localStorage.getItem('userRole') || '';
+        currentVertical = localStorage.getItem('userVertical') || '';
+        currentLevel = localStorage.getItem('userLevel') || '';
+      }
+
+      setRole((currentRole || '').toLowerCase());
+      setVertical(currentVertical);
+      setLevel((currentLevel || '').toLowerCase());
+      fetchData(currentRole, currentVertical);
+    };
+
+    init();
   }, []);
 
-  const fetchData = async (r: string) => {
+  const fetchData = async (r: string, v: string) => {
     const table = r === 'h&p' ? 'handp_data' : 'proshows_data';
-    const { data } = await supabase.from(table).select('*');
+    const { data } = await supabase.from(table).select('*').eq('vertical', v);
     if (data) setData(data);
   };
 
   const deleteRows = async () => {
     const table = role === 'h&p' ? 'handp_data' : 'proshows_data';
-    await supabase.from(table).delete().in('reg_id', selected);
+    await supabase.from(table).delete().in('reg_id', selected).eq('vertical', vertical);
     setSelected([]);
-    fetchData(role);
+    fetchData(role, vertical);
   };
 
   return (
