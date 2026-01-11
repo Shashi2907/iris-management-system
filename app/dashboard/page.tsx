@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 
 export default function Dashboard() {
   const [role, setRole] = useState('');
+  const [vertical, setVertical] = useState('');
+  const [level, setLevel] = useState('');
   const [stats, setStats] = useState<any>({});
   const [isMounted, setIsMounted] = useState(false);
 
