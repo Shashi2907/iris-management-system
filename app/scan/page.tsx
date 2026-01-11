@@ -7,77 +7,69 @@ export default function QRScan() {
   const [role, setRole] = useState('');
   const [scanResult, setScanResult] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<string>('');
   const qrCodeInstance = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     setRole(localStorage.getItem('userRole') || '');
-    qrCodeInstance.current = new Html5Qrcode("reader", {
-      verbose: false,
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-    });
-
-    return () => {
-      stopScanner();
-    };
+    qrCodeInstance.current = new Html5Qrcode("reader");
+    fetchAvailableRooms();
+    return () => { stopScanner(); };
   }, []);
 
+  const fetchAvailableRooms = async () => {
+    const { data } = await supabase.from('accommodations').select('*').gt('available_beds', 0);
+    if (data) setRooms(data);
+  };
+
   const startScanner = async () => {
-    setError(null);
-    try {
-      if (qrCodeInstance.current) {
-        await qrCodeInstance.current.start(
-          { facingMode: "environment" }, 
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          async (decodedText) => {
-            handleScanSuccess(decodedText);
-          },
-          () => {} 
-        );
-        setIsScanning(true);
-      }
-    } catch (err: any) {
-      setError("Camera error. Ensure you are on HTTPS.");
+    if (qrCodeInstance.current) {
+      await qrCodeInstance.current.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        async (text) => {
+          const table = localStorage.getItem('userRole') === 'h&p' ? 'handp_data' : 'proshows_data';
+          const { data } = await supabase.from(table).select('*').eq('reg_id', text).single();
+          if (data) {
+            setScanResult(data);
+            setSelectedRoom(data.assigned_room_id || ''); // Pre-select if already assigned
+            stopScanner();
+          }
+        },
+        () => {}
+      );
+      setIsScanning(true);
     }
   };
 
   const stopScanner = async () => {
-    try {
-      if (qrCodeInstance.current && qrCodeInstance.current.isScanning) {
-        await qrCodeInstance.current.stop();
-        setIsScanning(false);
-      }
-    } catch (err) { console.error(err); }
-  };
-
-  const handleScanSuccess = async (id: string) => {
-    const table = role === 'h&p' ? 'handp_data' : 'proshows_data';
-    const { data } = await supabase.from(table).select('*').eq('reg_id', id).single();
-    
-    if (data) {
-      setScanResult(data);
-      stopScanner(); 
-    } else {
-      alert("Ticket not found!");
+    if (qrCodeInstance.current?.isScanning) {
+      await qrCodeInstance.current.stop();
+      setIsScanning(false);
     }
   };
 
-  const updateStatus = async (updateObj: any) => {
-    const table = role === 'h&p' ? 'handp_data' : 'proshows_data';
-    const { error } = await supabase.from(table).update(updateObj).eq('reg_id', scanResult.reg_id);
-    
-    if (error) {
-      alert("Error: " + error.message);
-    } else {
-      // INSTANT UI UPDATE
-      const updatedData = { ...scanResult, ...updateObj };
-      setScanResult(updatedData);
+  const handleCheckInOut = async (isCheckIn: boolean) => {
+    if (role === 'h&p' && !selectedRoom) return alert("Please select accommodation!");
 
-      // Only alert and reload on final Check-In/Out action
-      if (updateObj.on_campus !== undefined || role === 'proshows') {
-        alert(updateObj.on_campus ? "Checked In Successfully" : "Checked Out Successfully");
-        window.location.reload(); 
+    const updateObj: any = { on_campus: isCheckIn };
+    if (isCheckIn) updateObj.assigned_room_id = selectedRoom;
+
+    // 1. Update Participant
+    const { error } = await supabase.from('handp_data').update(updateObj).eq('reg_id', scanResult.reg_id);
+
+    if (!error) {
+      // 2. Adjust Bed Count in Accommodations table
+      const adjustment = isCheckIn ? -1 : 1;
+      const roomId = isCheckIn ? selectedRoom : scanResult.assigned_room_id;
+      
+      if (roomId) {
+        await supabase.rpc('adjust_bed_count', { room_id_input: roomId, adj: adjustment });
       }
+
+      alert(isCheckIn ? "Checked In Successfully" : "Checked Out Successfully");
+      window.location.reload();
     }
   };
 
@@ -86,82 +78,83 @@ export default function QRScan() {
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-black text-gray-800 mb-6 text-center">QR Verification</h1>
 
-        {!scanResult && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-2 rounded-3xl border-2 border-dashed border-gray-200 min-h-[320px] flex flex-col justify-center overflow-hidden relative shadow-inner">
-              <div id="reader" className="w-full rounded-2xl overflow-hidden"></div>
-              {!isScanning && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gray-50/90 backdrop-blur-sm rounded-3xl">
-                  <button onClick={startScanner} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
-                    Open Scanner
-                  </button>
-                  {error && <p className="mt-4 text-red-500 text-[10px] font-bold uppercase">{error}</p>}
-                </div>
-              )}
-            </div>
+        {!scanResult ? (
+          <div className="bg-gray-50 p-2 rounded-3xl border-2 border-dashed border-gray-200 min-h-[300px] flex flex-col justify-center relative">
+            <div id="reader" className="w-full rounded-2xl overflow-hidden"></div>
+            {!isScanning && (
+              <button onClick={startScanner} className="absolute self-center bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold shadow-xl">
+                Open Scanner
+              </button>
+            )}
           </div>
-        )}
-
-        {scanResult && (
-          <div className="bg-white p-6 rounded-3xl shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-300">
-            <div className="border-b pb-4 mb-6 text-center">
-              <h2 className="text-2xl font-black text-gray-900 leading-tight">{scanResult.name}</h2>
-              <p className="text-blue-600 font-mono text-sm font-bold tracking-tight">{scanResult.reg_id}</p>
-              <div className="flex justify-center gap-2 mt-3">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${scanResult.on_campus ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
-                  {scanResult.on_campus ? 'Currently Inside' : 'Currently Outside'}
-                </span>
+        ) : (
+          <div className="bg-white p-6 rounded-3xl shadow-2xl border border-gray-100">
+            {/* Participant Details */}
+            <div className="border-b pb-4 mb-4">
+              <h2 className="text-2xl font-black">{scanResult.name}</h2>
+              <p className="text-blue-600 font-mono text-sm">{scanResult.reg_id}</p>
+              <div className="grid grid-cols-2 gap-2 mt-4 text-[10px] font-bold text-gray-400 uppercase">
+                <p>Phone: {scanResult.phone}</p>
+                <p>Status: {scanResult.status}</p>
               </div>
             </div>
 
+            {/* H&P Accommodation Logic */}
+            {role === 'h&p' && (
+              <div className="mb-6">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                  Assign Accommodation *
+                </label>
+                <select 
+                  className="w-full p-4 bg-gray-50 border rounded-2xl outline-none focus:ring-2 ring-blue-100 transition-all font-bold text-gray-700"
+                  value={selectedRoom}
+                  disabled={scanResult.on_campus} // Lock room selection if already inside
+                  onChange={(e) => setSelectedRoom(e.target.value)}
+                >
+                  <option value="">-- Choose Room --</option>
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>{room.name} ({room.available_beds} beds left)</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="space-y-4">
-              {role === 'h&p' ? (
-                <>
-                  {scanResult.status !== 'Attending' ? (
-                    <button onClick={() => updateStatus({ status: 'Attending' })} className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform">
-                      {scanResult.is_team ? "Mark Team Attendance" : "Mark Attendance"}
+              {scanResult.status !== 'Attending' ? (
+                <button 
+                  onClick={() => supabase.from('handp_data').update({status:'Attending'}).eq('id', scanResult.id).then(()=>window.location.reload())} 
+                  className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold"
+                >
+                  Mark Attendance
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  {scanResult.on_campus ? (
+                    <button 
+                      onClick={() => handleCheckInOut(false)} 
+                      className="flex-1 bg-red-600 text-white p-4 rounded-2xl font-bold shadow-lg"
+                    >
+                      Check-Out
                     </button>
                   ) : (
-                    <div className="p-2 bg-gray-50 rounded-2xl border border-gray-100 animate-in slide-in-from-bottom-2 duration-300">
-                      {/* TOGGLE LOGIC: Show only one button based on current status */}
-                      {scanResult.on_campus ? (
-                        <button 
-                          onClick={() => updateStatus({ on_campus: false })} 
-                          className="w-full bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg shadow-red-100 active:scale-95 transition-all"
-                        >
-                          Confirm Check-Out
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => updateStatus({ on_campus: true })} 
-                          className="w-full bg-green-600 text-white p-4 rounded-xl font-bold shadow-lg shadow-green-100 active:scale-95 transition-all"
-                        >
-                          Confirm Check-In
-                        </button>
-                      )}
-                    </div>
+                    <button 
+                      disabled={role === 'h&p' && !selectedRoom}
+                      onClick={() => handleCheckInOut(true)} 
+                      className={`flex-1 p-4 rounded-2xl font-bold shadow-lg ${
+                        role === 'h&p' && !selectedRoom ? 'bg-gray-200 text-gray-400' : 'bg-green-600 text-white'
+                      }`}
+                    >
+                      Check-In
+                    </button>
                   )}
-                </>
-              ) : (
-                <button 
-                  disabled={scanResult.day1_status === 'Attending'}
-                  onClick={() => updateStatus({ day1_status: 'Attending' })}
-                  className={`w-full p-4 rounded-2xl font-bold shadow-lg transition-all ${scanResult.day1_status === 'Attending' ? 'bg-gray-100 text-gray-400 border border-gray-200' : 'bg-purple-600 text-white shadow-purple-100'}`}
-                >
-                  {scanResult.day1_status === 'Attending' ? "Ticket Already Used" : "Confirm Proshow Entry"}
-                </button>
+                </div>
               )}
-              <button onClick={() => window.location.reload()} className="w-full text-gray-400 font-bold py-2 text-sm hover:text-gray-600 transition-colors">
-                Cancel & Scan Next
-              </button>
+              <button onClick={() => window.location.reload()} className="w-full text-gray-400 font-bold py-2 text-sm">Cancel</button>
             </div>
           </div>
         )}
       </div>
-
-      <p className="mt-12 text-[10px] text-gray-300 font-black uppercase tracking-widest text-center">
-        {isScanning ? "Scanner Active" : "Scanner Ready"}
-      </p>
     </div>
   );
 }
