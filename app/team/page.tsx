@@ -5,27 +5,24 @@ import { supabase } from '@/lib/supabase';
 export default function TeamManagement() {
   const [team, setTeam] = useState<any[]>([]);
   const [role, setRole] = useState('');
-  const [vertical, setVertical] = useState('');
   const [level, setLevel] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState('st');
-  const [newVertical, setNewVertical] = useState('');
+  const [newLevel, setNewLevel] = useState('st');
+  const [newRole, setNewRole] = useState('');
 
   useEffect(() => {
     const init = async () => {
       let currentRole = '';
-      let currentVertical = '';
       let currentLevel = '';
       try {
         const userResp: any = await (supabase as any).auth?.getUser?.();
         const user = userResp?.data?.user;
         if (user?.id) {
-          const { data: profile } = await supabase.from('profiles').select('role,level,vertical').eq('id', user.id).maybeSingle();
+          const { data: profile } = await supabase.from('profiles').select('role,level').eq('id', user.id).maybeSingle();
           if (profile) {
             currentRole = profile.role || '';
-            currentVertical = profile.vertical || '';
             currentLevel = profile.level || '';
           }
         }
@@ -35,27 +32,25 @@ export default function TeamManagement() {
 
       if (!currentRole) {
         currentRole = localStorage.getItem('userRole') || '';
-        currentVertical = localStorage.getItem('userVertical') || '';
         currentLevel = localStorage.getItem('userLevel') || '';
       }
 
       setRole((currentRole || '').toLowerCase());
-      setVertical(currentVertical);
       setLevel((currentLevel || '').toLowerCase());
-      fetchTeam(currentRole, currentVertical, currentLevel);
+      fetchTeam(currentRole, currentLevel);
     };
 
     init();
   }, []);
 
-  const fetchTeam = async (r: string, v: string, lvl: string) => {
-    // Only VCs should be able to fetch team members for their vertical
+  const fetchTeam = async (r: string, lvl: string) => {
+    // Only VCs should be able to fetch team members for their role
     if ((lvl || '').toLowerCase() !== 'vc') {
       setTeam([]);
       return;
     }
-    // users table contains VC/ST/JT account details; filter by vertical and exclude VCs
-    const { data } = await supabase.from('users').select('*').eq('vertical', v).neq('role', 'vc');
+    // profiles table contains level (VC/ST/JT) and role (h&p, proshows); filter by role and exclude VCs
+    const { data } = await supabase.from('profiles').select('*').eq('role', r).neq('level', 'vc');
     if (data) setTeam(data as any[]);
   };
 
@@ -64,15 +59,22 @@ export default function TeamManagement() {
   const addMember = async () => {
     // open the inline form
     if (level !== 'vc') return alert('Access denied');
-    setNewVertical(vertical || '');
+    setNewRole(role || '');
     setShowAddForm(true);
   };
 
   const submitNewMember = async () => {
     if (level !== 'vc') return alert('Access denied');
     if (!newName.trim() || !newEmail.trim()) return alert('Name and Email required');
-    const vToUse = newVertical || vertical;
-    const { data: inserted, error } = await supabase.from('users').insert([{ name: newName.trim(), email: newEmail.trim(), role: newRole, vertical: vToUse }]).select();
+    const roleToUse = newRole || role;
+    const levelToUse = newLevel || level;
+    const { data: inserted, error } = await supabase.from('profiles').insert([{ name: newName.trim(), email: newEmail.trim(), role: roleToUse, level: levelToUse }]).select();
+    if (error) {
+      // show error and return
+      // eslint-disable-next-line no-console
+      console.error('Insert error', error);
+      return alert('Failed to add member');
+    }
     if (error) {
       // show error and return
       // eslint-disable-next-line no-console
@@ -87,11 +89,11 @@ export default function TeamManagement() {
 
     // Also add to `profiles` table so credentials and level are recorded.
     try {
-      const profileLevel = (newRole || '').toUpperCase();
+      const profileLevel = (levelToUse || '').toUpperCase();
       // Upsert into profiles on email to avoid duplicates / merge updates
       const { data: profileUpserted, error: profileErr } = await supabase
         .from('profiles')
-        .upsert([{ email: newEmail.trim(), level: profileLevel, vertical: vToUse }], { onConflict: 'email' });
+        .upsert([{ email: newEmail.trim(), level: profileLevel, role: roleToUse }], { onConflict: 'email' });
       if (profileErr) {
         // eslint-disable-next-line no-console
         console.error('Failed to upsert profile', profileErr);
@@ -107,12 +109,12 @@ export default function TeamManagement() {
     // reset form
     setNewName('');
     setNewEmail('');
-    setNewRole('st');
-    setNewVertical('');
+    setNewLevel('st');
+    setNewRole('');
     setShowAddForm(false);
 
     // refresh from server to ensure consistency
-    fetchTeam(role, vertical, level);
+    fetchTeam(role, level);
   };
 
   const editMember = async (member: any) => {
@@ -122,8 +124,8 @@ export default function TeamManagement() {
     const r = prompt('Role', member.role) || member.role;
     const key = member.id ?? member.user_id ?? member.email;
     if (!key) return alert('Cannot determine identifier to update');
-    await supabase.from('users').update({ name, email, role: r }).or(`id.eq.${key},user_id.eq.${key},email.eq.${key}`);
-    fetchTeam(role, vertical, level);
+    await supabase.from('profiles').update({ name, email, role: r }).or(`id.eq.${key},user_id.eq.${key},email.eq.${key}`);
+    fetchTeam(role, level);
   };
 
   const removeMember = async (member: any) => {
@@ -134,12 +136,12 @@ export default function TeamManagement() {
     const keys = ['id', 'user_id', 'email'];
     for (const k of keys) {
       try {
-        await supabase.from('users').delete().in(k, [member[k] ?? key]);
+        await supabase.from('profiles').delete().in(k, [member[k] ?? key]);
       } catch (e) {
         // ignore
       }
     }
-    fetchTeam(role, vertical, level);
+    fetchTeam(role, level);
   };
   return (
     <div className="p-6">
@@ -153,7 +155,7 @@ export default function TeamManagement() {
 
         <>
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-black">Manage Team ({vertical || '—'})</h1>
+            <h1 className="text-2xl font-black">Manage Team ({role || '—'})</h1>
             <div className="flex gap-2">
               <button onClick={addMember} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold">Add Member</button>
             </div>
@@ -163,8 +165,8 @@ export default function TeamManagement() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" className="p-2 border rounded" />
                 <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email" className="p-2 border rounded" />
-                <input value={newVertical} onChange={(e) => setNewVertical(e.target.value)} placeholder="Vertical" className="p-2 border rounded" />
-                <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="p-2 border rounded">
+                <input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="Role (e.g. h&p, proshows)" className="p-2 border rounded" />
+                <select value={newLevel} onChange={(e) => setNewLevel(e.target.value)} className="p-2 border rounded">
                   <option value="st">ST</option>
                   <option value="jt">JT</option>
                 </select>
