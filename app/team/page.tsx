@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { FiEdit, FiTrash2 } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 
 export default function TeamManagement() {
@@ -321,9 +322,21 @@ export default function TeamManagement() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => editMember(member)} className="text-blue-600 font-bold">Edit</button>
-                    <button onClick={() => removeMember(member)} className="text-red-500 font-bold">Remove</button>
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => editMember(member)} 
+                      className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition duration-200 shadow-md hover:shadow-lg" 
+                      title="Edit"
+                    >
+                      <FiEdit size={22} strokeWidth={2.5} />
+                    </button>
+                    <button 
+                      onClick={() => removeMember(member)} 
+                      className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition duration-200 shadow-md hover:shadow-lg" 
+                      title="Remove"
+                    >
+                      <FiTrash2 size={22} strokeWidth={2.5} />
+                    </button>
                   </div>
                 </div>
               );
