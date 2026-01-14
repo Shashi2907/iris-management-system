@@ -13,6 +13,10 @@ export default function TeamManagement() {
   const [newEmail, setNewEmail] = useState('');
   const [newLevel, setNewLevel] = useState('st');
   const [memberPasswords, setMemberPasswords] = useState<Record<string, string>>({});
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editLevel, setEditLevel] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -203,15 +207,43 @@ export default function TeamManagement() {
     }
   };
 
-  const editMember = async (member: any) => {
+  const editMember = (member: any) => {
     if (level !== 'vc') return alert('Access denied');
-    const name = prompt('Name', member.name) || member.name;
-    const email = prompt('Email', member.email) || member.email;
-    const r = prompt('Role', member.role) || member.role;
-    const key = member.id ?? member.user_id ?? member.email;
-    if (!key) return alert('Cannot determine identifier to update');
-    await supabase.from('profiles').update({ name, email, role: r }).or(`id.eq.${key},user_id.eq.${key},email.eq.${key}`);
-    fetchTeam(role, level, currentUserId);
+    setEditingMemberId(getRowId(member));
+    setEditName(member.name);
+    setEditEmail(member.email);
+    setEditLevel(member.level);
+  };
+
+  const cancelEdit = () => {
+    setEditingMemberId(null);
+    setEditName('');
+    setEditEmail('');
+    setEditLevel('');
+  };
+
+  const submitEdit = async (member: any) => {
+    if (level !== 'vc') return alert('Access denied');
+    if (!member.id) return alert('Cannot determine identifier to update');
+    
+    try {
+      // Update only name, email, and level - password remains unchanged
+      // Convert level to uppercase to match database storage format
+      const levelToUse = (editLevel || '').toUpperCase();
+      
+      await supabase.from('profiles').update({ 
+        name: editName, 
+        email: editEmail, 
+        level: levelToUse 
+      }).eq('id', member.id);
+      
+      setEditingMemberId(null);
+      fetchTeam(role, level, currentUserId);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Exception editing member', e);
+      return alert('Error editing member: ' + (e as any).message);
+    }
   };
 
   const removeMember = async (member: any) => {
@@ -301,12 +333,33 @@ export default function TeamManagement() {
             {team.map(member => {
               const id = getRowId(member);
               const password = memberPasswords[member.email];
+              const isEditing = editingMemberId === id;
               const copyPassword = async () => {
                 if (password) {
                   await navigator.clipboard.writeText(password);
                   alert('Password copied to clipboard!');
                 }
               };
+              
+              if (isEditing) {
+                return (
+                  <div key={id} className="bg-yellow-50 text-black p-4 rounded-xl shadow border border-black">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="p-2 border rounded" />
+                      <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Email" className="p-2 border rounded" />
+                      <select value={editLevel} onChange={(e) => setEditLevel(e.target.value)} className="p-2 border rounded">
+                        <option value="st">ST</option>
+                        <option value="jt">JT</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => submitEdit(member)} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Save</button>
+                      <button onClick={cancelEdit} className="bg-gray-100 px-4 py-2 rounded-lg">Cancel</button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={id} className="bg-white p-4 rounded-xl shadow border border-black flex justify-between items-center">
                   <div>
