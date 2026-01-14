@@ -30,22 +30,9 @@ export default function Dashboard() {
   async function fetchStats(userRole: string) {
     try {
       if (userRole === 'h&p') {
-        // 1. Fetch Total Registered
-        const { count: reg } = await supabase
-          .from('handp_data')
-          .select('*', { count: 'exact', head: true });
-
-        // 2. Fetch Total Attending (Status marked as Attending)
-        const { count: attend } = await supabase
-          .from('handp_data')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'Attending');
-
-        // 3. Fetch Total On Campus
-        const { count: onCampus } = await supabase
-          .from('handp_data')
-          .select('*', { count: 'exact', head: true })
-          .eq('on_campus', true);
+        const { count: reg } = await supabase.from('handp_data').select('*', { count: 'exact', head: true });
+        const { count: attend } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
+        const { count: onCampus } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('on_campus', true);
         
         setStats(prev => ({ 
           ...prev,
@@ -55,16 +42,10 @@ export default function Dashboard() {
           outCampus: (attend || 0) - (onCampus || 0) 
         }));
 
-        // 4. Fetch Accommodations
-        const { data: roomData } = await supabase
-          .from('accommodations')
-          .select('*')
-          .order('name', { ascending: true });
-        
+        const { data: roomData } = await supabase.from('accommodations').select('*').order('name', { ascending: true });
         if (roomData) setRooms(roomData);
 
       } else {
-        // Proshows Logic
         const { count: d1 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
         const { count: d2 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
         const { count: d3 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day3_status', 'Attending');
@@ -78,15 +59,15 @@ export default function Dashboard() {
   if (!isMounted) return null;
 
   return (
-    <div className="p-6 bg-white min-h-screen">
+    <div className="p-4 md:p-8 bg-white min-h-screen">
       <div className="mb-8">
         <p className="text-blue-600 font-bold text-xs uppercase tracking-widest">Overview</p>
         <h1 className="text-3xl font-black text-gray-900">IRIS Dashboard</h1>
       </div>
 
       {role === 'h&p' ? (
-        <div className="space-y-10">
-          {/* 4 CARDS GRID - EXACTLY AS REQUESTED */}
+        <div className="space-y-12">
+          {/* TOP STAT CARDS - 4 Column Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label="Registered" val={stats.reg} color="bg-blue-600" />
             <StatCard label="Attending" val={stats.attend} color="bg-emerald-500" />
@@ -94,31 +75,48 @@ export default function Dashboard() {
             <StatCard label="Outside" val={stats.outCampus} color="bg-rose-500" />
           </div>
 
-          {/* Accommodation Status Section */}
+          {/* ACCOMMODATION SECTION */}
           <div>
             <h2 className="text-xl font-black text-gray-800 mb-6 flex items-center gap-2">
               🏨 Accommodation Status
             </h2>
-            <div className="grid gap-3">
-              {rooms.map((room) => (
-                <div key={room.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center transition-all hover:shadow-md">
-                  <div>
-                    <p className="font-bold text-gray-800 text-lg">{room.name}</p>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Beds Available</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-2xl font-black ${room.available_beds > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {room.available_beds} 
-                      <span className="text-sm text-gray-300 font-medium ml-1">/ {room.total_beds}</span>
-                    </p>
-                  </div>
+            
+            {/* 
+                MATCHING GRID: lg:grid-cols-4 makes these cards the same width 
+                as the Registered/Attending cards on desktop.
+            */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {rooms.map((room) => (
+              <div 
+                key={room.id} 
+                /* Reduced padding to p-3 and min-height to 100px */
+                className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between hover:border-blue-200 transition-all group min-h-[100px]"
+              >
+                <div className="mb-0.5">
+                  {/* Kept font large (text-xl) but reduced margin/line-height */}
+                  <p className="font-black text-gray-900 text-xl leading-none group-hover:text-blue-600 transition-colors">
+                    {room.name}
+                  </p>
+                  <p className="text-[8px] text-gray-400 font-black uppercase tracking-tighter">Beds Available</p>
                 </div>
-              ))}
-            </div>
+                
+                {/* Tightened border and padding */}
+                <div className="flex items-baseline justify-between gap-1 border-t border-gray-50 pt-1">
+                  {/* Kept font large (text-3xl) */}
+                  <p className={`text-3xl font-black tracking-tighter leading-none ${room.available_beds > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {room.available_beds}
+                  </p>
+                  <p className="text-[18px] text-gray-400 font-bold whitespace-nowrap">
+                    / {room.total_beds}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
           </div>
         </div>
       ) : (
-        /* Proshows View */
+        /* PROSHOWS VIEW */
         <div className="space-y-6">
           <p className="font-bold text-gray-400 text-sm">PROSHOW ATTENDANCE</p>
           <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
@@ -133,14 +131,14 @@ export default function Dashboard() {
 }
 
 const StatCard = ({ label, val, color }: any) => (
-  <div className={`${color} p-6 rounded-3xl text-white shadow-lg shadow-gray-100`}>
+  <div className={`${color} p-6 rounded-3xl text-white shadow-xl shadow-gray-50`}>
     <p className="text-[10px] opacity-80 uppercase font-black tracking-wider mb-1">{label}</p>
     <p className="text-4xl font-black">{val}</p>
   </div>
 );
 
 const ProshowColumn = ({ day, attending }: any) => (
-  <div className="bg-gray-50 p-6 rounded-3xl min-w-[220px] border border-gray-100">
+  <div className="bg-gray-50 p-6 rounded-3xl min-w-[220px] border border-gray-100 shadow-sm">
     <h3 className="font-black text-gray-800 text-lg mb-4 border-b border-gray-200 pb-2">{day}</h3>
     <div className="space-y-1">
       <p className="text-[10px] text-gray-400 font-bold uppercase">Checked-In</p>

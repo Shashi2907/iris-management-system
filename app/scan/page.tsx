@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
+import CryptoJS from 'crypto-js';
+
+// IMPORTANT: Replace this with your actual environment variable for security
+const QR_SECRET = process.env.NEXT_PUBLIC_QR_SECRET || 'your_fallback_secret_key';
 
 export default function QRScan() {
   const [role, setRole] = useState('');
@@ -18,6 +22,30 @@ export default function QRScan() {
     return () => { stopScanner(); };
   }, []);
 
+  // --- SECURITY VERIFICATION LOGIC ---
+  function verifyQR(scannedText: string, sigSecret: string) {
+    if (!scannedText || typeof scannedText !== 'string') {
+      return { tamper: true, id: null };
+    }
+
+    const lastDotIndex = scannedText.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      return { tamper: true, id: null };
+    }
+
+    const id = scannedText.substring(0, lastDotIndex);
+    const receivedHash = scannedText.substring(lastDotIndex + 1);
+
+    // Re-calculating the hash to compare
+    const expectedHash = CryptoJS.SHA256(id + "_" + sigSecret).toString(CryptoJS.enc.Base64);
+
+    if (expectedHash === receivedHash) {
+      return { tamper: false, id: id };
+    } else {
+      return { tamper: true, id: null };
+    }
+  }
+
   const fetchRooms = async () => {
     const { data } = await supabase.from('accommodations').select('*').order('name');
     if (data) setRooms(data);
@@ -25,23 +53,43 @@ export default function QRScan() {
 
   const startScanner = async () => {
     if (qrCodeInstance.current) {
+      setIsScanning(true);
       await qrCodeInstance.current.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         async (text) => {
+          // 1. RUN VERIFICATION FIRST
+          const verification = verifyQR(text, QR_SECRET);
+
+          if (verification.tamper) {
+            alert("Security Alert: Invalid or Tampered QR Code!");
+            // We don't stop the scanner here so the user can try again if it was a bad read
+            return; 
+          }
+
+          // 2. PROCEED WITH VERIFIED ID
+          const verifiedId = verification.id;
           const table = localStorage.getItem('userRole') === 'h&p' ? 'handp_data' : 'proshows_data';
-          const { data } = await supabase.from(table).select('*').eq('reg_id', text).single();
+          
+          const { data, error } = await supabase
+            .from(table)
+            .select('*')
+            .eq('reg_id', verifiedId)
+            .single();
+
           if (data) {
             setScanResult(data);
             setSelectedRoom(data.assigned_room_id ? String(data.assigned_room_id) : '');
             stopScanner();
           } else {
-            alert("Ticket not found!");
+            alert("Ticket not found in our records!");
           }
         },
-        () => {}
-      );
-      setIsScanning(true);
+        () => {} // QR Code not found in frame (silent)
+      ).catch(err => {
+        console.error("Scanner start error:", err);
+        setIsScanning(false);
+      });
     }
   };
 
@@ -55,43 +103,33 @@ export default function QRScan() {
   const updateStatus = async (updateObj: any) => {
     const table = role === 'h&p' ? 'handp_data' : 'proshows_data';
     
-    // 1. Movement Logic
     const isMovement = updateObj.on_campus !== undefined;
     const isCheckingIn = updateObj.on_campus === true;
-    const isCheckingOut = updateObj.on_campus === false;
 
-    // 2. CRITICAL FIX: Ensure assigned_room_id is saved to the participant's record
     if (isCheckingIn) {
       if (!selectedRoom) return alert("Please select a room!");
       updateObj.assigned_room_id = selectedRoom;
     }
 
-    // 3. Determine Room ID for Bed Adjustment (RPC)
-    // If checking in: use selectedRoom. If checking out: use what's already in the DB record.
     const roomIdToAdjust = isCheckingIn ? selectedRoom : String(scanResult.assigned_room_id || '');
 
-    // 4. Perform the Update in the participant table (handp_data)
     const { error } = await supabase.from(table).update(updateObj).eq('reg_id', scanResult.reg_id);
     
     if (error) {
       alert("Database Error: " + error.message);
     } else {
-      // 5. Adjust Bed Count in Accommodations table via RPC
-      if (isMovement && roomIdToAdjust && roomIdToAdjust !== '') {
+      // Adjust Bed Count via RPC if movement occurs
+      if (isMovement && roomIdToAdjust) {
         const adjustment = isCheckingIn ? -1 : 1;
-        
         const { error: rpcError } = await supabase.rpc('adjust_bed_count', { 
           room_id_input: roomIdToAdjust, 
           adj: adjustment 
         });
-
         if (rpcError) console.error("Inventory adjustment failed:", rpcError);
       }
 
-      // INSTANT UI UPDATE
       setScanResult((prev: any) => ({ ...prev, ...updateObj }));
 
-      // Alert and Refresh for final actions
       if (isMovement || role === 'proshows') {
         alert(isCheckingIn ? "Checked In Successfully" : "Checked Out Successfully");
         window.location.reload(); 
@@ -108,7 +146,10 @@ export default function QRScan() {
           <div className="bg-gray-50 p-2 rounded-3xl border-2 border-dashed border-gray-200 min-h-[320px] flex flex-col justify-center relative shadow-inner">
             <div id="reader" className="w-full rounded-2xl overflow-hidden"></div>
             {!isScanning && (
-              <button onClick={startScanner} className="absolute self-center bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
+              <button 
+                onClick={startScanner} 
+                className="absolute self-center bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all"
+              >
                 Open Scanner
               </button>
             )}
