@@ -70,14 +70,15 @@ export default function Navbar() {
         </Link>
       )}
 
-      {/* Optional: Logout button for Desktop */}
-      <button 
-        onClick={handleLogout}
-        className="hidden md:flex items-center gap-3 p-2 mt-auto rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all"
-      >
-        <LogOut size={20} />
-        <span>Logout</span>
-      </button>
-    </nav>
+      
+      {/* Responsive Logout button */}
+  <button 
+    onClick={handleLogout}
+    className="flex flex-col items-center gap-3 p-2 mt-auto rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all w-full"
+  >
+      <LogOut size={20} />
+      <span>Logout</span>
+  </button>
+</nav>
   );
 }
