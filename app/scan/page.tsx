@@ -24,6 +24,7 @@ export default function QRScan() {
 
   // --- SECURITY VERIFICATION LOGIC ---
   function verifyQR(scannedText: string, sigSecret: string) {
+    console.log(sigSecret, scannedText);
     if (!scannedText || typeof scannedText !== 'string') {
       return { tamper: true, id: null };
     }
