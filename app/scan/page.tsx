@@ -135,7 +135,13 @@ export default function QRScan() {
             )}
           </div>
 
-          <div className="mt-6 w-full">
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-gray-200"></div>
+            <span className="text-gray-400 font-bold text-sm px-2">OR</span>
+            <div className="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          <div className="w-full">
             <div className="flex gap-2">
               <input 
                 type="text" 
@@ -148,7 +154,7 @@ export default function QRScan() {
                 onClick={handleManualSubmit}
                 className="bg-blue-600 text-white px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-all"
               >
-                Go
+                Verify
               </button>
             </div>
             <p className="text-center text-xs text-gray-400 mt-2 font-medium">
