@@ -15,12 +15,12 @@ export default function Manage() {
   const [editFormData, setEditFormData] = useState<any>({});
 
   useEffect(() => {
-    const r = localStorage.getItem('userRole') || '';
+    const r = localStorage.getItem('userVertical') || '';
     setRole(r);
     fetchTableStructureAndData(r);
   }, []);
 
-  const getTableName = (r: string) => (r === 'h&p' ? 'handp_data' : 'proshows_data');
+  const getTableName = (r: string) => (r === 'h&p' ? 'handp' : 'proshows');
 
   /**
    * Fetches data and dynamically extracts headers from the database records

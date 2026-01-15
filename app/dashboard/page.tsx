@@ -17,22 +17,22 @@ export default function Dashboard() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const userRole = localStorage.getItem('userRole');
-    if (!userRole) {
+    const userVertical = localStorage.getItem('userVertical');
+    if (!userVertical) {
       window.location.replace('/');
       return;
     }
-    setRole(userRole);
-    fetchStats(userRole);
+    setRole(userVertical);
+    fetchStats(userVertical);
     setIsMounted(true);
   }, []);
 
-  async function fetchStats(userRole: string) {
+  async function fetchStats(userVertical: string) {
     try {
-      if (userRole === 'h&p') {
-        const { count: reg } = await supabase.from('handp_data').select('*', { count: 'exact', head: true });
-        const { count: attend } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
-        const { count: onCampus } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('on_campus', true);
+      if (userVertical === 'h&p') {
+        const { count: reg } = await supabase.from('handp').select('*', { count: 'exact', head: true });
+        const { count: attend } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
+        const { count: onCampus } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('on_campus', true);
         
         setStats(prev => ({ 
           ...prev,
@@ -46,9 +46,9 @@ export default function Dashboard() {
         if (roomData) setRooms(roomData);
 
       } else {
-        const { count: d1 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
-        const { count: d2 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
-        const { count: d3 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day3_status', 'Attending');
+        const { count: d1 } = await supabase.from('proshows').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
+        const { count: d2 } = await supabase.from('proshows').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
+        const { count: d3 } = await supabase.from('proshows').select('*', { count: 'exact', head: true }).eq('day3_status', 'Attending');
         setStats(prev => ({ ...prev, d1: d1 || 0, d2: d2 || 0, d3: d3 || 0 }));
       }
     } catch (e) {

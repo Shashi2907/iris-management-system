@@ -38,7 +38,7 @@ export default function TeamManagement() {
 
       if (!currentVertical) {
         currentVertical = localStorage.getItem('userVertical') || '';
-        currentRole = localStorage.getItem('userRole') || '';
+        currentRole = localStorage.getItem('userVertical') || '';
       }
 
       setCurrentUserId(userId);

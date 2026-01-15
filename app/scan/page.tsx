@@ -15,7 +15,7 @@ export default function QRScan() {
   const qrCodeInstance = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
-    setRole(localStorage.getItem('userRole') || '');
+    setRole(localStorage.getItem('userVertical') || '');
     qrCodeInstance.current = new Html5Qrcode("reader");
     fetchRooms();
     return () => { stopScanner(); };
@@ -47,7 +47,7 @@ export default function QRScan() {
           if (verification.tamper) return alert("Security Alert: Invalid QR Code!");
           
           const verifiedId = verification.id;
-          const table = localStorage.getItem('userRole') === 'h&p' ? 'handp_data' : 'proshows_data';
+          const table = localStorage.getItem('userVertical') === 'h&p' ? 'handp' : 'proshows';
           
           const { data, error } = await supabase
             .from(table)
@@ -76,7 +76,7 @@ export default function QRScan() {
   };
 
   const updateStatus = async (updateObj: any) => {
-    const table = role === 'h&p' ? 'handp_data' : 'proshows_data';
+    const table = role === 'h&p' ? 'handp' : 'proshows';
     const isMovement = updateObj.on_campus !== undefined;
     const isCheckingIn = updateObj.on_campus === true;
 

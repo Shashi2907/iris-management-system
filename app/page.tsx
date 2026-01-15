@@ -28,7 +28,7 @@ export default function LoginPage() {
 
       // Save credentials
       localStorage.setItem('userRole', profile.role);
-      localStorage.setItem('userLevel', profile.level);
+      localStorage.setItem('userVertical', profile.vertical);
 
       // MOBILE STABILITY: Use replace to prevent the '?' loop
       setTimeout(() => {

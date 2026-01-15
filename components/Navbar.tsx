@@ -14,8 +14,8 @@ export default function Navbar() {
 
   useEffect(() => {
     // This runs only on the client side
-    setRole(localStorage.getItem('userRole'));
-    setLevel(localStorage.getItem('userLevel'));
+    setRole(localStorage.getItem('userVertical'));
+    setLevel(localStorage.getItem('userVertical'));
     setIsMounted(true);
   }, []);
 
