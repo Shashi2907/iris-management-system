@@ -31,7 +31,7 @@ export default function Dashboard() {
     try {
       if (userVertical === 'h&p') {
         const { count: reg } = await supabase.from('handp').select('*', { count: 'exact', head: true });
-        const { count: attend } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
+        const { count: attend } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('attending', true);
         const { count: onCampus } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('checkedin', true);
         
         setStats(prev => ({ 
@@ -42,7 +42,7 @@ export default function Dashboard() {
           outCampus: (attend || 0) - (onCampus || 0) 
         }));
 
-        const { data: roomData } = await supabase.from('accommodations').select('*').order('name', { ascending: true });
+        const { data: roomData } = await supabase.from('accommodations').select('*').order('room', { ascending: true });
         if (roomData) setRooms(roomData);
 
       } else {
@@ -95,7 +95,7 @@ export default function Dashboard() {
                 <div className="mb-0.5">
                   {/* Kept font large (text-xl) but reduced margin/line-height */}
                   <p className="font-black text-gray-900 text-xl leading-none group-hover:text-blue-600 transition-colors">
-                    {room.name}
+                    {room.room}
                   </p>
                   <p className="text-[8px] text-gray-400 font-black uppercase tracking-tighter">Beds Available</p>
                 </div>

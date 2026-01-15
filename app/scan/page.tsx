@@ -48,7 +48,12 @@ export default function QRScan() {
       .single();
 
     if (data) {
-      setScanResult(data);
+      // Initialize attending flag if not set (for new users)
+      const processedData = {
+        ...data,
+        attending: data.attending ?? false
+      };
+      setScanResult(processedData);
       setSelectedRoom(data.acco_id ? String(data.acco_id) : '');
       stopScanner();
     } else {
@@ -208,7 +213,7 @@ export default function QRScan() {
             <div className="space-y-4">
               {vertical === 'h&p' ? (
                 <>
-                  {scanResult.attending ? (
+                  {!scanResult.attending ? (
                     /* BUTTON LOGIC: 2 buttons for teams, 1 for individuals */
                     <div className={scanResult.is_team ? "grid grid-cols-2 gap-2" : "w-full"}>
                       <button 
