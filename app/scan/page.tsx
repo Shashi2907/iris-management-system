@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
 import CryptoJS from 'crypto-js';
+import { CircleCheckBig, CircleX } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 const QR_SECRET = process.env.NEXT_PUBLIC_QR_SECRET || 'your_fallback_secret_key';
 
@@ -14,6 +16,7 @@ export default function QRScan() {
   const [selectedRoom, setSelectedRoom] = useState<string>('');
   const [manualId, setManualId] = useState('');
   const qrCodeInstance = useRef<Html5Qrcode | null>(null);
+  const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
     setVertical(localStorage.getItem('userVertical') || '');
@@ -58,13 +61,16 @@ export default function QRScan() {
       setSelectedRoom(data.acco_id ? String(data.acco_id) : (data.is_acco === false ? 'NO_ACCO' : ''));
       stopScanner();
     } else {
-      alert("Ticket/ID not found!");
+      showToast("Ticket/ID not found!", "error");
     }
   };
 
   const handleManualSubmit = async () => {
     const trimmedId = manualId.trim().toUpperCase();
-    if (trimmedId.length !== 4) return alert("ID must be exactly 4 characters long");
+    if (trimmedId.length !== 4) {
+      showToast("ID must be exactly 4 characters long", "warning");
+      return;
+    }
     
     await processTicketId(trimmedId);
   };
@@ -77,7 +83,10 @@ export default function QRScan() {
         { fps: 10, qrbox: 250 },
         async (text) => {
           const verification = verifyQR(text, QR_SECRET);
-          if (verification.tamper) return alert("Security Alert: Invalid QR Code!");
+          if (verification.tamper) {
+            showToast("Security Alert: Invalid QR Code!", "error");
+            return;
+          }
           
           if (verification.id) {
             await processTicketId(verification.id);
@@ -105,7 +114,10 @@ export default function QRScan() {
     if (isCheckingIn) {
       if (!hasExistingRoom) {
         // New check-in, assign a room
-        if (!selectedRoom) return alert("Please select a room!");
+        if (!selectedRoom) {
+          showToast("Please select a room!", "warning");
+          return;
+        }
         // Convert selectedRoom to number for database, or null if no acco
         updateObj.acco_id = noAccoSelected ? null : parseInt(selectedRoom, 10);
       }
@@ -116,7 +128,7 @@ export default function QRScan() {
     const { error } = await supabase.from(table).update(updateObj).eq('id', scanResult.id);
     
     if (error) {
-      alert("Database Error: " + error.message);
+      showToast("Database Error: " + error.message, "error");
     } else {
       if (!skipBedAdjustment && isMovement && accoIDToAdjust && accoIDToAdjust !== 'null') {
         const adjustment = isCheckingIn ? -1 : 1;
@@ -124,7 +136,7 @@ export default function QRScan() {
       }
       setScanResult((prev: any) => ({ ...prev, ...updateObj }));
       if (isMovement || vertical === 'proshows') {
-        alert("Operation Successful");
+        showToast("Operation Successful", "success");
         setScanResult(null);
         setSelectedRoom('');
         setManualId('');
@@ -133,9 +145,15 @@ export default function QRScan() {
   };
 
   const handleFestSignoff = async () => {
-    if (!confirm("Are you sure you want to sign off this person from the fest? This will vacate their room.")) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Fest Signoff',
+      message: 'Are you sure you want to sign off this person from the fest? This will vacate their room.',
+      confirmText: 'Sign Off',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+    
+    if (!confirmed) return;
 
     const table = vertical === 'h&p' ? 'handp' : 'proshows';
     const accoIDToVacate = String(scanResult.acco_id || '');
@@ -147,13 +165,13 @@ export default function QRScan() {
       .eq('id', scanResult.id);
 
     if (error) {
-      alert("Database Error: " + error.message);
+      showToast("Database Error: " + error.message, "error");
     } else {
       // Vacate the room by increasing bed count
       if (accoIDToVacate && accoIDToVacate !== 'null') {
         await supabase.rpc('adjust_bed_count', { _id: accoIDToVacate, adj: 1 });
       }
-      alert("Fest Signoff Successful - Room vacated");
+      showToast("Fest Signoff Successful - Room vacated", "success");
       setScanResult(null);
       setSelectedRoom('');
       setManualId('');
@@ -316,9 +334,14 @@ export default function QRScan() {
                     ) : (
                       <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
                         <div>
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block text-center">
-                            {scanResult.checkedin ? "🏨 Assigned Room" : "🏨 Assign Accommodation *"}
-                          </label>
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Accommodation:</span>
+                            <div className="flex items-center gap-3">
+                              {scanResult.acco1 ? <CircleCheckBig size={18} className="text-green-500" /> : <CircleX size={18} className="text-red-400" />}
+                              {scanResult.acco2 ? <CircleCheckBig size={18} className="text-green-500" /> : <CircleX size={18} className="text-red-400" />}
+                              {scanResult.acco3 ? <CircleCheckBig size={18} className="text-green-500" /> : <CircleX size={18} className="text-red-400" />}
+                            </div>
+                          </div>
                           {!scanResult.checkedin ? (
                             scanResult.acco_id && scanResult.acco_id !== 'null' ? (
                               <div className="w-full p-4 bg-gradient-to-r from-slate-100 to-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-center font-bold">
@@ -377,7 +400,11 @@ export default function QRScan() {
                 )}
                 
                 {/* Cancel Button */}
-                <button onClick={() => window.location.reload()} className="w-full text-slate-400 font-bold py-3 text-sm text-center hover:text-slate-600 cursor-pointer transition-colors">
+                <button onClick={() => {
+                  setScanResult(null);
+                  setSelectedRoom('');
+                  setManualId('');
+                }} className="w-full text-slate-400 font-bold py-3 text-sm text-center hover:text-slate-600 cursor-pointer transition-colors">
                   ✕ Cancel & Scan Next
                 </button>
               </div>

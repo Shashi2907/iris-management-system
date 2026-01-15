@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { FiEdit, FiTrash2 } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/Toast';
 
 export default function TeamManagement() {
   const [team, setTeam] = useState<any[]>([]);
@@ -16,6 +17,7 @@ export default function TeamManagement() {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const { showToast } = useToast();
 
   useEffect(() => {
     const init = async () => {
@@ -80,13 +82,22 @@ export default function TeamManagement() {
   const generatePassword = (firstName: string): string => `${firstName}${Date.now()}`;
 
   const addMember = async () => {
-    if (role !== 'vc') return alert('Access denied');
+    if (role !== 'vc') {
+      showToast('Access denied', 'error');
+      return;
+    }
     setShowAddForm(true);
   };
 
   const submitNewMember = async () => {
-    if (role !== 'vc') return alert('Access denied');
-    if (!newName.trim() || !newEmail.trim()) return alert('Name and Email required');
+    if (role !== 'vc') {
+      showToast('Access denied', 'error');
+      return;
+    }
+    if (!newName.trim() || !newEmail.trim()) {
+      showToast('Name and Email required', 'warning');
+      return;
+    }
     
     const verticalToUse = vertical;
     const roleToUse = 'MEMBER'; // Automatically set role to MEMBER
@@ -120,14 +131,19 @@ export default function TeamManagement() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: newEmail.trim(), password: generatedPassword }),
             });
-            if (!retryResponse.ok) return alert('Failed to create user');
+            if (!retryResponse.ok) {
+              showToast('Failed to create user', 'error');
+              return;
+            }
             authData = await retryResponse.json();
             userId = authData?.user?.id;
           } else {
-            return alert('Failed: ' + errorMsg);
+            showToast('Failed: ' + errorMsg, 'error');
+            return;
           }
         } else {
-          return alert('Failed: ' + errorMsg);
+          showToast('Failed: ' + errorMsg, 'error');
+          return;
         }
       } else {
         authData = await authResponse.json();
@@ -148,7 +164,10 @@ export default function TeamManagement() {
         ])
         .select();
 
-      if (profileError) return alert('Profile error: ' + profileError.message);
+      if (profileError) {
+        showToast('Profile error: ' + profileError.message, 'error');
+        return;
+      }
 
       setMemberPasswords(prev => ({ ...prev, [newEmail.trim()]: generatedPassword }));
       if (inserted) setTeam(prev => [...inserted as any[], ...prev]);
@@ -158,19 +177,25 @@ export default function TeamManagement() {
       setShowAddForm(false);
       fetchTeam(vertical, role, currentUserId);
     } catch (e) {
-      alert('Error adding member');
+      showToast('Error adding member', 'error');
     }
   };
 
   const editMember = (member: any) => {
-    if (role !== 'vc') return alert('Access denied');
+    if (role !== 'vc') {
+      showToast('Access denied', 'error');
+      return;
+    }
     setEditingMemberId(getRowId(member));
     setEditName(member.name);
     setEditEmail(member.email);
   };
 
   const submitEdit = async (member: any) => {
-    if (role !== 'vc') return alert('Access denied');
+    if (role !== 'vc') {
+      showToast('Access denied', 'error');
+      return;
+    }
     try {
       await supabase.from('profiles').update({ 
         name: editName, 
@@ -180,12 +205,15 @@ export default function TeamManagement() {
       setEditingMemberId(null);
       fetchTeam(vertical, role, currentUserId);
     } catch (e) {
-      alert('Error editing member');
+      showToast('Error editing member', 'error');
     }
   };
 
   const removeMember = async (member: any) => {
-    if (role !== 'vc') return alert('Access denied');
+    if (role !== 'vc') {
+      showToast('Access denied', 'error');
+      return;
+    }
     try {
       if (member.id) {
         await fetch('/api/delete-team-member', {
@@ -197,7 +225,7 @@ export default function TeamManagement() {
       await supabase.from('profiles').delete().eq('id', member.id);
       fetchTeam(vertical, role, currentUserId);
     } catch (e) {
-      alert('Error removing member');
+      showToast('Error removing member', 'error');
     }
   };
 

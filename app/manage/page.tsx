@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Trash, Edit3, Save, X, CheckCircle, XCircle } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 export default function Manage() {
   const [vertical, setVertical] = useState('');
@@ -13,6 +14,7 @@ export default function Manage() {
   // Inline Editing State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
     const r = localStorage.getItem('userVertical') || '';
@@ -63,7 +65,7 @@ export default function Manage() {
       .eq('id', id);
 
     if (error) {
-      alert("Update failed: " + error.message);
+      showToast("Update failed: " + error.message, "error");
     } else {
       setEditingId(null);
       fetchTableStructureAndData(vertical);
@@ -81,12 +83,20 @@ export default function Manage() {
   };
 
   const deleteRows = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selected.length} items?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Items',
+      message: `Are you sure you want to delete ${selected.length} item${selected.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+    
+    if (!confirmed) return;
     const table = getTableName(vertical);
     const { error } = await supabase.from(table).delete().in('id', selected);
     
     if (error) {
-      alert("Delete failed: " + error.message);
+      showToast("Delete failed: " + error.message, "error");
     } else {
       setSelected([]);
       fetchTableStructureAndData(vertical);

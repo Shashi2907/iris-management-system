@@ -1,15 +1,20 @@
 "use client";
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/Toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
   const handleLogin = async () => {
     // Basic validation
-    if (!email || !password) return alert("Please fill in all fields");
+    if (!email || !password) {
+      showToast("Please fill in all fields", "warning");
+      return;
+    }
     
     setLoading(true);
 
@@ -36,7 +41,7 @@ export default function LoginPage() {
       }, 800);
 
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, "error");
       setLoading(false);
     }
   };
