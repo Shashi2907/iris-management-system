@@ -94,23 +94,28 @@ export default function QRScan() {
     }
   };
 
-  const updateStatus = async (updateObj: any) => {
+  const updateStatus = async (updateObj: any, skipBedAdjustment: boolean = false) => {
     const table = vertical === 'h&p' ? 'handp' : 'proshows';
     const isMovement = updateObj.checkedin !== undefined;
     const isCheckingIn = updateObj.checkedin === true;
+    const hasExistingRoom = scanResult.acco_id && scanResult.acco_id !== 'null';
 
     if (isCheckingIn) {
-      if (!selectedRoom) return alert("Please select a room!");
-      updateObj.acco_id = selectedRoom;
+      if (!hasExistingRoom) {
+        // New check-in, assign a room
+        if (!selectedRoom) return alert("Please select a room!");
+        updateObj.acco_id = selectedRoom;
+      }
+      // If user already has a room, don't change it - just mark as checked in
     }
 
-    const accoIDToAdjust = isCheckingIn ? selectedRoom : String(scanResult.acco_id || '');
+    const accoIDToAdjust = isCheckingIn ? (hasExistingRoom ? null : selectedRoom) : String(scanResult.acco_id || '');
     const { error } = await supabase.from(table).update(updateObj).eq('id', scanResult.id);
     
     if (error) {
       alert("Database Error: " + error.message);
     } else {
-      if (isMovement && accoIDToAdjust && accoIDToAdjust !== 'null') {
+      if (!skipBedAdjustment && isMovement && accoIDToAdjust && accoIDToAdjust !== 'null') {
         const adjustment = isCheckingIn ? -1 : 1;
         await supabase.rpc('adjust_bed_count', { _id: accoIDToAdjust, adj: adjustment });
       }
@@ -121,6 +126,34 @@ export default function QRScan() {
         setSelectedRoom('');
         setManualId('');
       }
+    }
+  };
+
+  const handleFestSignoff = async () => {
+    if (!confirm("Are you sure you want to sign off this person from the fest? This will vacate their room.")) {
+      return;
+    }
+
+    const table = vertical === 'h&p' ? 'handp' : 'proshows';
+    const accoIDToVacate = String(scanResult.acco_id || '');
+
+    // Update the user to mark checkout and clear acco_id
+    const { error } = await supabase
+      .from(table)
+      .update({ checkedin: false, acco_id: null })
+      .eq('id', scanResult.id);
+
+    if (error) {
+      alert("Database Error: " + error.message);
+    } else {
+      // Vacate the room by increasing bed count
+      if (accoIDToVacate && accoIDToVacate !== 'null') {
+        await supabase.rpc('adjust_bed_count', { _id: accoIDToVacate, adj: 1 });
+      }
+      alert("Fest Signoff Successful - Room vacated");
+      setScanResult(null);
+      setSelectedRoom('');
+      setManualId('');
     }
   };
 
@@ -238,14 +271,20 @@ export default function QRScan() {
                           {scanResult.checkedin ? "Assigned Room" : "Assign Accommodation *"}
                         </label>
                         {!scanResult.checkedin ? (
-                          <select className="w-full p-4 bg-gray-50 border rounded-2xl outline-none font-bold text-gray-700" value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
-                            <option value="">-- Select Room --</option>
-                            {rooms
-                              .filter(r => r.available_beds > 0 && r.sex === scanResult.sex)
-                              .map(room => (
-                                <option key={room.id} value={room.id}>{room.room} ({room.available_beds} beds)</option>
-                            ))}
-                          </select>
+                          scanResult.acco_id && scanResult.acco_id !== 'null' ? (
+                            <div className="w-full p-4 bg-gray-100 text-gray-700 border border-gray-200 rounded-2xl text-center font-bold">
+                              {rooms.find(r => String(r.id) === String(scanResult.acco_id))?.room || "Assigned Room"} (Existing)
+                            </div>
+                          ) : (
+                            <select className="w-full p-4 bg-gray-50 border rounded-2xl outline-none font-bold text-gray-700" value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
+                              <option value="">-- Select Room --</option>
+                              {rooms
+                                .filter(r => r.available_beds > 0 && r.sex === scanResult.sex)
+                                .map(room => (
+                                  <option key={room.id} value={room.id}>{room.room} ({room.available_beds} beds)</option>
+                              ))}
+                            </select>
+                          )
                         ) : (
                           <div className="w-full p-4 bg-blue-50 text-blue-700 border border-blue-100 rounded-2xl text-center font-bold">
                             {rooms.find(r => String(r.id) === String(scanResult.acco_id))?.room || "Assigned Room"}
@@ -254,11 +293,19 @@ export default function QRScan() {
                       </div>
                       <div className="flex gap-2">
                         {scanResult.checkedin ? (
-                          <button onClick={() => updateStatus({ checkedin: false })} className="flex-1 bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg cursor-pointer">Confirm Check-Out</button>
+                          <button onClick={() => updateStatus({ checkedin: false }, true)} className="flex-1 bg-blue-900 text-white p-4 rounded-xl font-bold shadow-lg cursor-pointer">Confirm Check-Out</button>
                         ) : (
                           <button disabled={!selectedRoom} onClick={() => updateStatus({ checkedin: true })} className={`flex-1 p-4 rounded-xl font-bold shadow-lg transition-all ${!selectedRoom ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white cursor-pointer'}`}>Confirm Check-In</button>
                         )}
                       </div>
+                      {scanResult.checkedin && (
+                        <button 
+                          onClick={handleFestSignoff} 
+                          className="w-full bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg cursor-pointer active:scale-95 transition-all"
+                        >
+                          Fest Signoff (Vacate Room)
+                        </button>
+                      )}
                     </div>
                   )}
                 </>
