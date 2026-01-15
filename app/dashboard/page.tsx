@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function Dashboard() {
-  const [role, setRole] = useState('');
+  const [vertical, setvertical] = useState('');
   const [stats, setStats] = useState({
     reg: 0,
     attend: 0,
@@ -22,7 +22,7 @@ export default function Dashboard() {
       window.location.replace('/');
       return;
     }
-    setRole(userVertical);
+    setvertical(userVertical);
     fetchStats(userVertical);
     setIsMounted(true);
   }, []);
@@ -32,7 +32,7 @@ export default function Dashboard() {
       if (userVertical === 'h&p') {
         const { count: reg } = await supabase.from('handp').select('*', { count: 'exact', head: true });
         const { count: attend } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
-        const { count: onCampus } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('on_campus', true);
+        const { count: onCampus } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('checkedin', true);
         
         setStats(prev => ({ 
           ...prev,
@@ -65,7 +65,7 @@ export default function Dashboard() {
         <h1 className="text-3xl font-black text-gray-900">IRIS Dashboard</h1>
       </div>
 
-      {role === 'h&p' ? (
+      {vertical === 'h&p' ? (
         <div className="space-y-12">
           {/* TOP STAT CARDS - 4 Column Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
