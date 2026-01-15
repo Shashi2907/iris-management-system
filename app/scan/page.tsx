@@ -33,7 +33,7 @@ export default function QRScan() {
   }
 
   const fetchRooms = async () => {
-    const { data } = await supabase.from('accommodations').select('*').order('name');
+    const { data } = await supabase.from('accommodations').select('*').order('room');
     if (data) setRooms(data);
   };
 
@@ -238,12 +238,12 @@ export default function QRScan() {
                             {rooms
                               .filter(r => r.available_beds > 0 && r.sex === scanResult.sex)
                               .map(room => (
-                                <option key={room.id} value={room.id}>{room.name} ({room.available_beds} beds)</option>
+                                <option key={room.id} value={room.id}>{room.room} ({room.available_beds} beds)</option>
                             ))}
                           </select>
                         ) : (
                           <div className="w-full p-4 bg-blue-50 text-blue-700 border border-blue-100 rounded-2xl text-center font-bold">
-                            {rooms.find(r => String(r.id) === String(scanResult.acco_id))?.name || "Assigned Room"}
+                            {rooms.find(r => String(r.id) === String(scanResult.acco_id))?.room || "Assigned Room"}
                           </div>
                         )}
                       </div>
