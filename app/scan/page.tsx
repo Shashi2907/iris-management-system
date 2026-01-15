@@ -100,18 +100,18 @@ export default function QRScan() {
     const isMovement = updateObj.checkedin !== undefined;
     const isCheckingIn = updateObj.checkedin === true;
     const hasExistingRoom = scanResult.acco_id && scanResult.acco_id !== 'null';
-    const noAccoRequired = scanResult.is_acco === false || selectedRoom === 'NO_ACCO';
+    const noAccoSelected = selectedRoom === 'NO_ACCO';
 
     if (isCheckingIn) {
       if (!hasExistingRoom) {
         // New check-in, assign a room
-        if (!selectedRoom && !noAccoRequired) return alert("Please select a room!");
-        updateObj.acco_id = noAccoRequired ? null : selectedRoom;
+        if (!selectedRoom) return alert("Please select a room!");
+        updateObj.acco_id = noAccoSelected ? null : selectedRoom;
       }
       // If user already has a room, don't change it - just mark as checked in
     }
 
-    const accoIDToAdjust = isCheckingIn ? (hasExistingRoom || noAccoRequired ? null : selectedRoom) : String(scanResult.acco_id || '');
+    const accoIDToAdjust = isCheckingIn ? (hasExistingRoom || noAccoSelected ? null : selectedRoom) : String(scanResult.acco_id || '');
     const { error } = await supabase.from(table).update(updateObj).eq('id', scanResult.id);
     
     if (error) {

@@ -56,12 +56,12 @@ export default function TeamManagement() {
       return;
     }
     
-    // Filter profiles by vertical and exclude other VCs/self
+    // Filter profiles by vertical and only show MEMBERs (exclude VCs and self)
     const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('vertical', v)
-      .neq('role', 'vc')
+      .ilike('role', 'member')
       .neq('id', userId);
 
     if (data) {
