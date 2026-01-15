@@ -106,7 +106,8 @@ export default function QRScan() {
       if (!hasExistingRoom) {
         // New check-in, assign a room
         if (!selectedRoom) return alert("Please select a room!");
-        updateObj.acco_id = noAccoSelected ? null : selectedRoom;
+        // Convert selectedRoom to number for database, or null if no acco
+        updateObj.acco_id = noAccoSelected ? null : parseInt(selectedRoom, 10);
       }
       // If user already has a room, don't change it - just mark as checked in
     }
@@ -119,7 +120,7 @@ export default function QRScan() {
     } else {
       if (!skipBedAdjustment && isMovement && accoIDToAdjust && accoIDToAdjust !== 'null') {
         const adjustment = isCheckingIn ? -1 : 1;
-        await supabase.rpc('adjust_bed_count', { _id: accoIDToAdjust, adj: adjustment });
+        await supabase.rpc('adjust_bed_count', { _id: parseInt(accoIDToAdjust, 10), adj: adjustment });
       }
       setScanResult((prev: any) => ({ ...prev, ...updateObj }));
       if (isMovement || vertical === 'proshows') {
