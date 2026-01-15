@@ -134,7 +134,7 @@ export default function QRScan() {
           <div className="bg-gray-50 p-2 rounded-3xl border-2 border-dashed border-gray-200 min-h-[320px] flex flex-col justify-center relative shadow-inner">
             <div id="reader" className="w-full rounded-2xl overflow-hidden"></div>
             {!isScanning && (
-              <button onClick={startScanner} className="absolute self-center bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
+              <button onClick={startScanner} className="absolute self-center bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all cursor-pointer">
                 Open Scanner
               </button>
             )}
@@ -157,7 +157,7 @@ export default function QRScan() {
               />
               <button 
                 onClick={handleManualSubmit}
-                className="bg-blue-600 text-white px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-all"
+                className="bg-blue-600 text-white px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-all cursor-pointer"
               >
                 Verify
               </button>
@@ -218,14 +218,14 @@ export default function QRScan() {
                     <div className={scanResult.is_team ? "grid grid-cols-2 gap-2" : "w-full"}>
                       <button 
                         onClick={() => updateStatus({ attending: true })} 
-                        className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition-all"
+                        className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition-all cursor-pointer"
                       >
                         Mark Attendance
                       </button>
                       {scanResult.is_team && (
                         <button 
                           onClick={() => updateStatus({ attending: true })} 
-                          className="w-full bg-indigo-700 text-white p-4 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition-all"
+                          className="w-full bg-indigo-700 text-white p-4 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition-all cursor-pointer"
                         >
                           Mark Team Attendance
                         </button>
@@ -254,9 +254,9 @@ export default function QRScan() {
                       </div>
                       <div className="flex gap-2">
                         {scanResult.checkedin ? (
-                          <button onClick={() => updateStatus({ checkedin: false })} className="flex-1 bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg">Confirm Check-Out</button>
+                          <button onClick={() => updateStatus({ checkedin: false })} className="flex-1 bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg cursor-pointer">Confirm Check-Out</button>
                         ) : (
-                          <button disabled={!selectedRoom} onClick={() => updateStatus({ checkedin: true })} className={`flex-1 p-4 rounded-xl font-bold shadow-lg transition-all ${!selectedRoom ? 'bg-gray-200 text-gray-400' : 'bg-green-600 text-white'}`}>Confirm Check-In</button>
+                          <button disabled={!selectedRoom} onClick={() => updateStatus({ checkedin: true })} className={`flex-1 p-4 rounded-xl font-bold shadow-lg transition-all ${!selectedRoom ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white cursor-pointer'}`}>Confirm Check-In</button>
                         )}
                       </div>
                     </div>
@@ -264,11 +264,11 @@ export default function QRScan() {
                 </>
               ) : (
                 /* PROSHOWS VERTICAL */
-                <button disabled={scanResult.day1_status === 'Attending'} onClick={() => updateStatus({ day1_status: 'Attending' })} className={`w-full p-4 rounded-2xl font-bold shadow-lg ${scanResult.day1_status === 'Attending' ? 'bg-gray-100 text-gray-400' : 'bg-purple-600 text-white'}`}>
+                <button disabled={scanResult.day1_status === 'Attending'} onClick={() => updateStatus({ day1_status: 'Attending' })} className={`w-full p-4 rounded-2xl font-bold shadow-lg ${scanResult.day1_status === 'Attending' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white cursor-pointer'}`}>
                   {scanResult.day1_status === 'Attending' ? "Ticket Used" : "Confirm Entry"}
                 </button>
               )}
-              <button onClick={() => window.location.reload()} className="w-full text-gray-400 font-bold py-2 text-sm text-center hover:text-gray-600">Cancel & Scan Next</button>
+              <button onClick={() => window.location.reload()} className="w-full text-gray-400 font-bold py-2 text-sm text-center hover:text-gray-600 cursor-pointer">Cancel & Scan Next</button>
             </div>
           </div>
         )}
