@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Trash, Edit3, Save, X, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Manage() {
-  const [role, setRole] = useState('');
+  const [vertical, setVertical] = useState('');
   const [data, setData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -15,12 +15,12 @@ export default function Manage() {
   const [editFormData, setEditFormData] = useState<any>({});
 
   useEffect(() => {
-    const r = localStorage.getItem('userRole') || '';
-    setRole(r);
+    const r = localStorage.getItem('userVertical') || '';
+    setVertical(r);
     fetchTableStructureAndData(r);
   }, []);
 
-  const getTableName = (r: string) => (r === 'h&p' ? 'handp_data' : 'proshows_data');
+  const getTableName = (r: string) => (r === 'h&p' ? 'handp' : 'proshows');
 
   /**
    * Fetches data and dynamically extracts headers from the database records
@@ -53,7 +53,7 @@ export default function Manage() {
    * Updates the row in Supabase using the current inline edit state
    */
   const saveRow = async (id: string) => {
-    const table = getTableName(role);
+    const table = getTableName(vertical);
     // Exclude 'id' from update payload
     const { id: _, ...updateData } = editFormData;
 
@@ -66,7 +66,7 @@ export default function Manage() {
       alert("Update failed: " + error.message);
     } else {
       setEditingId(null);
-      fetchTableStructureAndData(role);
+      fetchTableStructureAndData(vertical);
     }
   };
 
@@ -82,14 +82,14 @@ export default function Manage() {
 
   const deleteRows = async () => {
     if (!window.confirm(`Are you sure you want to delete ${selected.length} items?`)) return;
-    const table = getTableName(role);
+    const table = getTableName(vertical);
     const { error } = await supabase.from(table).delete().in('id', selected);
     
     if (error) {
       alert("Delete failed: " + error.message);
     } else {
       setSelected([]);
-      fetchTableStructureAndData(role);
+      fetchTableStructureAndData(vertical);
     }
   };
 
@@ -124,10 +124,10 @@ export default function Manage() {
       <div className="flex justify-between items-center mb-6 shrink-0">
         <div>
           <h1 className="text-2xl font-black text-gray-900 capitalize">
-            {role === 'h&p' ? 'Participants' : 'Attendees'} Records
+            {vertical === 'h&p' ? 'Participants' : 'Attendees'} Records
           </h1>
           <p className="text-xs text-gray-500 font-mono uppercase tracking-widest font-bold">
-            Source: {getTableName(role)}
+            Source: {getTableName(vertical)}
           </p>
         </div>
         

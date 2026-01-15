@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     // upsert profile with id set to auth user id
     const { error: profileErr } = await supabaseAdmin.from('profiles').upsert(
-      [{ id: userId, email, level: (level || '').toUpperCase(), role: vertical }],
+      [{ id: userId, email, level: (level || '').toUpperCase(), vertical: vertical }],
       { onConflict: 'email' }
     );
 

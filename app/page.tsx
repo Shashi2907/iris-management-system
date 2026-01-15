@@ -27,8 +27,8 @@ export default function LoginPage() {
       if (pError || !profile) throw new Error("Profile not found");
 
       // Save credentials
+      localStorage.setItem('userVertical', profile.vertical);
       localStorage.setItem('userRole', profile.role);
-      localStorage.setItem('userLevel', profile.level);
 
       // MOBILE STABILITY: Use replace to prevent the '?' loop
       setTimeout(() => {

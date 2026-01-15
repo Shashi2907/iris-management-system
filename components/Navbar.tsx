@@ -8,14 +8,14 @@ export default function Navbar() {
   const pathname = usePathname();
   
   // State to hold user info and mounting status
+  const [vertical, setVertical] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
-  const [level, setLevel] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     // This runs only on the client side
+    setVertical(localStorage.getItem('userVertical'));
     setRole(localStorage.getItem('userRole'));
-    setLevel(localStorage.getItem('userLevel'));
     setIsMounted(true);
   }, []);
 
@@ -56,11 +56,11 @@ export default function Navbar() {
       >
         <Users size={20} /> 
         <span className="text-[10px] md:text-base font-bold">
-          {role === 'h&p' ? 'Participants' : 'Attendees'}
+          {vertical === 'h&p' ? 'Participants' : 'Attendees'}
         </span>
       </Link>
 
-      {level === 'VC' && (
+      {role === 'VC' && (
         <Link 
           href="/team" 
           className={`flex flex-col items-center md:flex-row md:gap-3 p-2 rounded-xl transition-all ${pathname === '/team' ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:bg-gray-50'}`}
@@ -74,10 +74,10 @@ export default function Navbar() {
       {/* Responsive Logout button */}
   <button 
     onClick={handleLogout}
-    className="flex flex-col items-center gap-3 p-2 mt-auto rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all w-full"
+    className="flex flex-col items-center md:flex-row md:gap-3 p-2 md:mt-auto rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all md:w-full"
   >
       <LogOut size={20} />
-      <span>Logout</span>
+      <span className="text-[10px] md:text-base">Logout</span>
   </button>
 </nav>
   );

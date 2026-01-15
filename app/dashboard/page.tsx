@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function Dashboard() {
-  const [role, setRole] = useState('');
+  const [vertical, setvertical] = useState('');
   const [stats, setStats] = useState({
     reg: 0,
     attend: 0,
@@ -17,22 +17,22 @@ export default function Dashboard() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const userRole = localStorage.getItem('userRole');
-    if (!userRole) {
+    const userVertical = localStorage.getItem('userVertical');
+    if (!userVertical) {
       window.location.replace('/');
       return;
     }
-    setRole(userRole);
-    fetchStats(userRole);
+    setvertical(userVertical);
+    fetchStats(userVertical);
     setIsMounted(true);
   }, []);
 
-  async function fetchStats(userRole: string) {
+  async function fetchStats(userVertical: string) {
     try {
-      if (userRole === 'h&p') {
-        const { count: reg } = await supabase.from('handp_data').select('*', { count: 'exact', head: true });
-        const { count: attend } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
-        const { count: onCampus } = await supabase.from('handp_data').select('*', { count: 'exact', head: true }).eq('on_campus', true);
+      if (userVertical === 'h&p') {
+        const { count: reg } = await supabase.from('handp').select('*', { count: 'exact', head: true });
+        const { count: attend } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('status', 'Attending');
+        const { count: onCampus } = await supabase.from('handp').select('*', { count: 'exact', head: true }).eq('checkedin', true);
         
         setStats(prev => ({ 
           ...prev,
@@ -46,9 +46,9 @@ export default function Dashboard() {
         if (roomData) setRooms(roomData);
 
       } else {
-        const { count: d1 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
-        const { count: d2 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
-        const { count: d3 } = await supabase.from('proshows_data').select('*', { count: 'exact', head: true }).eq('day3_status', 'Attending');
+        const { count: d1 } = await supabase.from('proshows').select('*', { count: 'exact', head: true }).eq('day1_status', 'Attending');
+        const { count: d2 } = await supabase.from('proshows').select('*', { count: 'exact', head: true }).eq('day2_status', 'Attending');
+        const { count: d3 } = await supabase.from('proshows').select('*', { count: 'exact', head: true }).eq('day3_status', 'Attending');
         setStats(prev => ({ ...prev, d1: d1 || 0, d2: d2 || 0, d3: d3 || 0 }));
       }
     } catch (e) {
@@ -65,7 +65,7 @@ export default function Dashboard() {
         <h1 className="text-3xl font-black text-gray-900">IRIS Dashboard</h1>
       </div>
 
-      {role === 'h&p' ? (
+      {vertical === 'h&p' ? (
         <div className="space-y-12">
           {/* TOP STAT CARDS - 4 Column Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
